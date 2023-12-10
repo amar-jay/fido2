@@ -58,7 +58,7 @@ async function registerFido(store:Store, user_id:string) {
      if (!response.publicKey){
        throw new Error("public key error")
        }
-     response.publicKey!.timeout = 3000000
+     response.publicKey!.timeout = 10000
      response.publicKey!.challenge = new ArrayBuffer(response.publicKey!.challenge as any)
      response.publicKey!.user.id = new ArrayBuffer(response.publicKey!.user.id as any)
      const userId:string = response.publicKey.user.id as any
@@ -110,31 +110,32 @@ function App() {
 
   const register = async (user:string) => {
 
-    try{
-        const {credentials} = await registerFido(store,user)
-        if (cred) {
-          setCred(credentials)
-        } else {
-          let e = "credentials is null"
-          console.error(e)
-          setError(e)
-          } 
-      } catch(e){
+        await registerFido(store,user)
+        .then(({credentials}) => { 
+          if (cred) {
+            setCred(credentials)
+          } else {
+            let e = "credentials is null"
+            console.error(e)
+            setError(e)
+            } 
+        })
+        .catch((e) => {
         let error = e as Error
         console.error("Error creating credential:", error);
         setError(error.name + ": "+ error.message)
-        }
+        })
 
   }
 
   const login = async (user_id:string) => {
     try{
-        const {credentials} = await registerFido(store,user)
-        console.log(credentials, user_id)
+        const {assertion} = await loginFido(store,user)
+        console.log(assertion, user_id)
     } catch (e) {
         let error = e as Error
         console.error("Error creating credential:", error);
-        setError(error.name + " "+ error.message)
+        setError(error.name + ": "+ error.message)
       }
   }
   return (
