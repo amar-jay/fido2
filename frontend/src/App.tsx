@@ -66,18 +66,20 @@ async function registerFido(store:Store, user_id:string) {
      const credentials = await navigator.credentials.create(response) // has no attestation
 
      
-     wait(10000)
+     const fetchRes = await wait(10000)
      .then(() => fetch("/webauthn/registration/"+user_id+"/end",{
          body: JSON.stringify(credentials)
        }))
        .then(e => e.json())
        .then(finalRes => {
         store.setCredentials(userId, finalRes.credential_id)
+        return finalRes
         })
 
 
      return {
        credentials,
+       fetchRes
        }
 }
 
