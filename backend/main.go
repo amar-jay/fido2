@@ -1,12 +1,14 @@
 package main
 
 import (
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
-        "github.com/gofiber/fiber/v2/middleware/logger"
-        "github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/google/uuid"
+	"google.golang.org/genproto/googleapis/iam/credentials/v1"
 )
 
 var webAuthn *webauthn.WebAuthn //not proud of how I initialize this
@@ -15,6 +17,10 @@ var (
     users = make(map[string]*User)
 )
 
+type RegistrationResult struct {
+    CredentialId string `json:"credential_id"`
+    UserId string `json:"user_id"`
+}
 
 type User struct {
     Id string
@@ -97,8 +103,11 @@ func main() {
         return nil
     })
 
-    app.Get("/register/:name", BeforeRegistration)
-    app.Get("/authenticate/:name", AfterRegistration)
+    app.Get("/register/:name/begin", BeforeRegistration)
+    app.Post("/register/:name/end", AfterRegistration)
+
+    app.Get("/login/:name/begin", BeforeRegistration)
+    app.Get("/login/:name/end", AfterRegistration)
     app.Get("/handlers", func(c *fiber.Ctx)error{
        return c.JSON(app.GetRoutes())
     })
@@ -110,11 +119,67 @@ func main() {
 
 }
 
+func BeforeLogin(c *fiber.Ctx) error {
+    name := c.Params("name","unknown")
+    user := getUser(name)
+
+    options, session, err := webAuthn.BeginLogin(user)
+    if err != nil {
+        return fiber.ErrInternalServerError
+    }
+
+    user.Session = session
+    users[user.Name] = &user // do not understand why this is neccessary
+
+    return c.JSON(options)
+}
+
+func AfterLogin(c *fiber.Ctx) error {
+    name := c.Params("name", "unkown")
+    user := users[name]
+    if user == nil {
+        return fiber.ErrUnauthorized
+    }
+    
+    if user.Session == nil {
+        return fiber.ErrUnauthorized
+    }
+
+    r, err := adaptor.ConvertRequest(c, true)
+    if err != nil {
+        return fiber.ErrInternalServerError
+    }
+
+    credential, err := webAuthn.FinishLogin(user, *user.Session, r)
+    if err != nil {
+        return err
+    }
+
+    for _, cred := range user.Credentials {
+        if string(cred.ID) == string(credential.ID) {
+            return c.JSON(fiber.StatusOK)
+        }
+    }
+    return fiber.ErrUnauthorized
+}
+
 func BeforeRegistration(c *fiber.Ctx) error {
     name := c.Params("name","unknown")
     user := getUser(name)
 
-    options, session, err := webAuthn.BeginRegistration(user)
+//    t := true
+    options, session, err := webAuthn.BeginRegistration(
+		user,
+        /*
+		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+			RequireResidentKey: &t,
+			ResidentKey:        protocol.ResidentKeyRequirementRequired,
+			UserVerification:   protocol.UserVerificationRequirement(h.cfg.Webauthn.UserVerification),
+		}),
+        */
+		webauthn.WithConveyancePreference(protocol.PreferNoAttestation),
+		// don't set the excludeCredentials list, so an already registered device can be re-registered
+	)
     if err != nil {
         return fiber.ErrInternalServerError
     }
@@ -132,7 +197,6 @@ func AfterRegistration(c *fiber.Ctx) error {
         return fiber.ErrUnauthorized
     }
     
-    println("-", len(users), "-")
     if user.Session == nil {
         return fiber.ErrUnauthorized
     }
@@ -148,5 +212,12 @@ func AfterRegistration(c *fiber.Ctx) error {
     }
 
     user.Credentials = append(user.Credentials, *credential)
-    return nil
+
+    res := RegistrationResult{
+        UserId: user.Id,
+        CredentialId: string(credential.ID),
+    }
+
+    return c.JSON(res)
 }
+
