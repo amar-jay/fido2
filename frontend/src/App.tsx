@@ -44,6 +44,10 @@ async function loginFido(store:Store, user_id:string){
       }
 }
 
+
+function wait(ms:number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 async function registerFido(store:Store, user_id:string) {
     // Check for WebAuthn support
     const res = await fetch("http://localhost:8000/register/"+user_id + "/begin")
@@ -60,15 +64,20 @@ async function registerFido(store:Store, user_id:string) {
      const userId:string = response.publicKey.user.id as any
 
      const credentials = await navigator.credentials.create(response) // has no attestation
+
      
-     const finalRes = await fetch("/webauthn/registration/"+user_id+"/end",{
-       body: JSON.stringify(credentials)
-     }).then(e => e.json())
+     wait(10000)
+     .then(() => fetch("/webauthn/registration/"+user_id+"/end",{
+         body: JSON.stringify(credentials)
+       }))
+       .then(e => e.json())
+       .then(finalRes => {
+        store.setCredentials(userId, finalRes.credential_id)
+        })
 
 
-     store.setCredentials(userId, finalRes.credential_id)
      return {
-       credentials, finalRes
+       credentials,
        }
 }
 
