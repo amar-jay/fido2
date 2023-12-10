@@ -64,6 +64,9 @@ async function registerFido(store:Store, user_id:string) {
      const userId:string = response.publicKey.user.id as any
 
      const credentials = await navigator.credentials.create(response) // has no attestation
+     if (!credentials) {
+       throw new Error("error from here!!")
+       }
 
      
      const fetchRes = await wait(10000)
