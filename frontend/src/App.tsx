@@ -120,11 +120,13 @@ function App() {
             setError(e)
             } 
         })
+        /*
         .catch((e) => {
         let error = e as Error
         console.error("Error creating credential:", error);
         setError(error.name + ": "+ error.message)
         })
+        */
 
   }
 
