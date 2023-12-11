@@ -73,7 +73,7 @@ func getUser(name string) (User) {
 func main() {
     wconfig := &webauthn.Config{
             RPDisplayName: appName, // Display Name for your site
-        RPID: "localhost", // Generally the FQDN for your site
+        RPID: "fido2.com", // Generally the FQDN for your site
         RPOrigins: []string{"https://localhost:8000", "https://localhost:8000"}, // The origin URLs allowed for WebAuthn requests
     }
 
@@ -103,16 +103,28 @@ func main() {
         return nil
     })
 
+    app.Get("/log-in/:name", func(c *fiber.Ctx) error {
+        err := BeforeLogin(c) 
+        if err != nil {
+            return err
+        }
+        err = AfterLogin(c)
+        if err != nil {
+            return err
+        }
+        return nil
+    })
+
     app.Get("/register/:name/begin", BeforeRegistration)
     app.Post("/register/:name/end", AfterRegistration)
 
-    app.Get("/login/:name/begin", BeforeRegistration)
-    app.Get("/login/:name/end", AfterRegistration)
+    app.Get("/login/:name/begin", BeforeLogin)
+    app.Get("/login/:name/end", AfterLogin)
     app.Get("/handlers", func(c *fiber.Ctx)error{
        return c.JSON(app.GetRoutes())
     })
 
-    //if err := app.ListenTLS(":8000", "./cert.pem", "./key.pem");err != nil {
+    //if err := app.ListenTLS(":8000", "./assets/cert.pem", "./assets/key.pem");err != nil {
     if err := app.Listen(":8000");err != nil{
         panic(err)
     }
