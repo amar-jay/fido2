@@ -80,8 +80,8 @@ func main() {
 
     wconfig := &webauthn.Config{
             RPDisplayName: appName, // Display Name for your site
-        RPID: "fido-ten.vercel.app", // Generally the FQDN for your site
-        RPOrigins: []string{"https://localhost:8000", "https://localhost:8000",  "fido-ten.vercel.app"}, // The origin URLs allowed for WebAuthn requests
+        RPID: "localhost", // Generally the FQDN for your site
+        RPOrigins: []string{"https://localhost:8080", "https://localhost:5173"}, // The origin URLs allowed for WebAuthn requests
     }
 
     var err error
@@ -145,7 +145,7 @@ func BeforeAuthenticate(c *fiber.Ctx) error {
 
     options, session, err := webAuthn.BeginLogin(user)
     if err != nil {
-        return fiber.ErrInternalServerError
+        return err
     }
 
     user.Session = session

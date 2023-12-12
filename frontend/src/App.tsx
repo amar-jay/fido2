@@ -20,7 +20,7 @@ type AssertionResult = {
 
 async function loginFido(store:Store, user_id:string){
     // initialize
-    const req = await fetch("http://localhost:8000/register/"+user_id + "/begin",)
+    const req = await fetch("http://localhost:8080/authenticate/"+user_id + "/begin",)
     // TODO: proper handling of request 
     
     const res:CredentialCreationOptions = await req.json()!
@@ -31,7 +31,7 @@ async function loginFido(store:Store, user_id:string){
       }
 
     // finilize 
-    const assertionReq = await fetch("http://localhost:8000/register/"+ user_id + "/end",{
+    const assertionReq = await fetch("http://localhost:8080/authenticate/"+ user_id + "/end",{
       method: "POST",
       body: JSON.stringify(assertion)
       })
@@ -50,7 +50,7 @@ function wait(ms:number) {
 }
 async function registerFido(store:Store, user_id:string) {
     // Check for WebAuthn support
-    const res = await fetch("http://localhost:8000/register/"+user_id + "/begin")
+    const res = await fetch("http://localhost:8080/register/"+user_id + "/begin")
     // TODO: proper handling of request 
 
      const response:CredentialCreationOptions = await res.json()!
@@ -63,11 +63,22 @@ async function registerFido(store:Store, user_id:string) {
      response.publicKey!.user.id = new ArrayBuffer(response.publicKey!.user.id as any)
      const userId:string = response.publicKey.user.id as any
 
-     const credentials = await navigator.credentials.create(response) // has no attestation
+
+     const publicKey =  {
+      challenge: new Uint8Array([117, 61, 252, 231, 191, 241, 190]),
+      rp: { id: "amarjay.com", name: "Amar Jay" },
+      user: {
+        id: new Uint8Array([79, 252, 83, 72, 214, 7, 89, 26]),
+        name: "me",
+        displayName: "Me"
+      },
+      pubKeyCredParams: [ {type: "public-key", alg: -7} ]
+    } satisfies CredentialCreationOptions["publicKey"]
+     const credentials = await navigator.credentials.create({ publicKey }) // has no attestation
 
      
      const fetchRes = await wait(10000)
-     .then(() => fetch("/webauthn/registration/"+user_id+"/end",{
+     .then(() => fetch("http://localhost:8080/register/"+user_id+"/end",{
          body: JSON.stringify(credentials)
        }))
        .then(e => e.json())
@@ -91,7 +102,7 @@ async function registerFido(store:Store, user_id:string) {
       throw new Error("WebAuthn Challenge error");
     }
 
-    const assertionReq = await fetch("http://localhost:8000/authenticate/"+assertion)
+    const assertionReq = await fetch("http://localhost:8080/authenticate/"+assertion)
     const assertionRes = await assertionReq.json()
      return cred
  */
@@ -120,13 +131,11 @@ function App() {
             setError(e)
             } 
         })
-        /*
         .catch((e) => {
         let error = e as Error
         console.error("Error creating credential:", error);
         setError(error.name + ": "+ error.message)
         })
-        */
 
   }
 
