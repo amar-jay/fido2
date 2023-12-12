@@ -8,7 +8,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/google/uuid"
-	"google.golang.org/genproto/googleapis/iam/credentials/v1"
 )
 
 var webAuthn *webauthn.WebAuthn //not proud of how I initialize this
@@ -73,8 +72,8 @@ func getUser(name string) (User) {
 func main() {
     wconfig := &webauthn.Config{
             RPDisplayName: appName, // Display Name for your site
-        RPID: "localhost", // Generally the FQDN for your site
-        RPOrigins: []string{"https://localhost:8000", "https://localhost:8000"}, // The origin URLs allowed for WebAuthn requests
+        RPID: "fido-ten.vercel.app", // Generally the FQDN for your site
+        RPOrigins: []string{"https://localhost:8000", "https://localhost:8000",  "fido-ten.vercel.app"}, // The origin URLs allowed for WebAuthn requests
     }
 
     var err error
@@ -177,7 +176,7 @@ func BeforeRegistration(c *fiber.Ctx) error {
 			UserVerification:   protocol.UserVerificationRequirement(h.cfg.Webauthn.UserVerification),
 		}),
         */
-		webauthn.WithConveyancePreference(protocol.PreferNoAttestation),
+		webauthn.WithConveyancePreference(protocol.PreferDirectAttestation),
 		// don't set the excludeCredentials list, so an already registered device can be re-registered
 	)
     if err != nil {
