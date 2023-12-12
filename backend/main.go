@@ -1,6 +1,9 @@
 package main
 
 import (
+	"flag"
+	"strconv"
+
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	fiber "github.com/gofiber/fiber/v2"
@@ -70,6 +73,11 @@ func getUser(name string) (User) {
 }
 
 func main() {
+    var p int
+    flag.IntVar(&p, "port", 8080, "Specify the port number")
+    flag.Parse()
+   var port string = ":" + strconv.Itoa(p) 
+
     wconfig := &webauthn.Config{
             RPDisplayName: appName, // Display Name for your site
         RPID: "fido-ten.vercel.app", // Generally the FQDN for your site
@@ -78,19 +86,20 @@ func main() {
 
     var err error
     app := fiber.New()
+	
     app.Use(logger.New())
     app.Use(cors.New())
+	
     webAuthn, err = webauthn.New(wconfig) 
     if err != nil {
         panic(err)
     }
-    print("assigned")
-
+	
     app.Get("/", func(c *fiber.Ctx) error {
         return c.SendString("Hello, World!")
     })
 
-    app.Get("/sign-up/:name", func(c *fiber.Ctx) error {
+    app.Get("/register/:name", func(c *fiber.Ctx) error {
         err := BeforeRegistration(c) 
         if err != nil {
             return err
@@ -102,23 +111,35 @@ func main() {
         return nil
     })
 
+    app.Get("/authenticate/:name", func(c *fiber.Ctx) error {
+        err := BeforeAuthenticate(c) 
+        if err != nil {
+            return err
+        }
+        err = AfterAuthenticate(c)
+        if err != nil {
+            return err
+        }
+        return nil
+    })
+
     app.Get("/register/:name/begin", BeforeRegistration)
     app.Post("/register/:name/end", AfterRegistration)
 
-    app.Get("/login/:name/begin", BeforeRegistration)
-    app.Get("/login/:name/end", AfterRegistration)
+    app.Get("/authenticate/:name/begin", BeforeAuthenticate)
+    app.Get("/authenticate/:name/end", AfterAuthenticate)
     app.Get("/handlers", func(c *fiber.Ctx)error{
        return c.JSON(app.GetRoutes())
     })
 
-    //if err := app.ListenTLS(":8000", "./cert.pem", "./key.pem");err != nil {
-    if err := app.Listen(":8000");err != nil{
+    //if err := app.ListenTLS(p, "./assets/cert.pem", "./assets/key.pem");err != nil {
+    if err := app.Listen(port);err != nil{
         panic(err)
     }
 
 }
 
-func BeforeLogin(c *fiber.Ctx) error {
+func BeforeAuthenticate(c *fiber.Ctx) error {
     name := c.Params("name","unknown")
     user := getUser(name)
 
@@ -133,7 +154,7 @@ func BeforeLogin(c *fiber.Ctx) error {
     return c.JSON(options)
 }
 
-func AfterLogin(c *fiber.Ctx) error {
+func AfterAuthenticate(c *fiber.Ctx) error {
     name := c.Params("name", "unkown")
     user := users[name]
     if user == nil {
